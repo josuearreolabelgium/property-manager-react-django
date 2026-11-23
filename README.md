@@ -1,65 +1,89 @@
-# Fill in the blanks: Property Manager
+Property Manager
 
-The same project you already ran, with the key parts removed. Every missing piece has a `TODO` comment with hints. The tests already exist and tell you when you got it right.
+A full stack CRUD application for managing commercial real estate listings. The frontend is built with React, TypeScript and TanStack Query, and the backend is a Django REST Framework API. Both sides are covered by automated tests.
 
-## Rules
-1. **Type everything yourself.** No copy and paste from the original project.
-2. **Use the hints and the docs links first.** Only look at your original `jll-practice` project when you're stuck for more than 10 minutes, then close it and keep going.
-3. **Run the tests after each exercise.** Red means not yet, green means done.
+Property Manager screenshot
 
-## Setup (once)
+Features
+List properties with server side pagination
+Filter by city
+Create, update and delete properties
+Toggle a property's status between available and leased with one click
+Sort table columns on the client
+Loading, empty and error states in the UI
+Input validation on the backend (for example, size must be greater than zero)
+Tech stack
+Layer	Technologies
+Frontend	React 19, TypeScript, Vite, TanStack Query, TanStack Table
+Backend	Python, Django, Django REST Framework, django-filter
+Database	SQLite (development)
+Testing	pytest + pytest-django (API), Vitest + React Testing Library + MSW (UI)
+How it works
 
-Backend terminal:
-```
+Backend. A single ModelViewSet exposes the full CRUD API, registered with a DRF router. The serializer converts models to JSON and validates incoming data, combining the field rules generated from the model with a custom validator for business rules. Pagination and filtering are configured globally in the DRF settings.
+
+Frontend. All HTTP calls live in src/api.ts, and all server state is managed with TanStack Query hooks in src/hooks.ts:
+
+useQuery reads the list. The city and page are part of the query key, so each filter combination is cached separately and refetched automatically when a filter changes.
+useMutation handles create, update and delete. On success, each mutation invalidates the ["properties"] queries so the table stays in sync with the server.
+keepPreviousData keeps the current page visible while the next one loads.
+API
+Method	Endpoint	Description
+GET	/api/properties/	List properties (?page=, ?city=, ?status=)
+POST	/api/properties/	Create a property
+GET	/api/properties/<id>/	Retrieve a property
+PATCH	/api/properties/<id>/	Partially update a property
+DELETE	/api/properties/<id>/	Delete a property
+Running locally
+
+Requirements: Python 3.11+ and Node.js 20+.
+
+Backend (http://localhost:8000)
+
+bash
 cd backend
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py seed
-```
+python manage.py seed        # loads sample properties
+python manage.py runserver
 
-Frontend terminal:
-```
+Frontend (http://localhost:5173)
+
+bash
 cd frontend
 npm install
-```
-
-## Part 1: Backend (exercises 1 to 3)
-
-| # | File | What you build |
-|---|---|---|
-| 1 | `backend/properties/serializers.py` | Serializer + validation |
-| 2 | `backend/properties/views.py` | ViewSet (the whole CRUD) |
-| 3 | `backend/properties/urls.py` | Router |
-
-Check your work:
-```
+npm run dev
+Running the tests
+bash
+# Backend: CRUD, validation and filtering
+cd backend
 pytest -v
-```
-Goal: **6 passed**. Then run `python manage.py runserver` and open http://127.0.0.1:8000/api/properties/
 
-## Part 2: Frontend (exercises 4 and 5)
-
-| # | File | What you build |
-|---|---|---|
-| 4 | `frontend/src/api.ts` | `fetchProperties` and `createProperty` |
-| 5 | `frontend/src/hooks.ts` | `useProperties`, `useCreateProperty`, `useDeleteProperty` |
-
-Note: until you finish exercise 5, VS Code will show red errors in `App.tsx`. That's expected, they go away once your hooks return the right thing.
-
-Check your work:
-```
+# Frontend: rendering, error handling and creating a property
+cd frontend
 npm test
-```
-Goal: **3 passed**. Then run `npm run dev` (with the backend running) and open http://localhost:5173
-
-## After you finish
-Explain each exercise out loud in English, as if an interviewer asked "walk me through this code". For example:
-
-> "The serializer converts model instances to JSON and validates incoming data. I added a field level validator so the size must be greater than zero, which returns a 400 if it fails."
-
-## Next rounds
-* **Round 2:** delete your solutions and do it again, faster.
-* **Round 3:** also delete `models.py` (keep the field list in mind) and `PropertyForm.tsx`.
-* **Round 4:** start a brand new project from zero with only the docs.
+Project structure
+backend/
+  core/                  Django settings and root URLs
+  properties/
+    models.py            Property model
+    serializers.py       JSON conversion and validation
+    views.py             ModelViewSet (CRUD)
+    urls.py              DRF router
+    tests/               pytest API tests
+frontend/
+  src/
+    api.ts               HTTP calls
+    hooks.ts             TanStack Query hooks
+    App.tsx              Page layout, filters and pagination
+    components/          Form and table components
+    App.test.tsx         UI tests with MSW
+Next steps
+Optimistic updates for status changes
+Edit form for all fields
+Authentication and per user permissions
+Filters stored in the URL with TanStack Router
+Docker setup and CI pipeline
