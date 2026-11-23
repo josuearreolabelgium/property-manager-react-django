@@ -1,0 +1,18 @@
+// MSW intercepts fetch in tests so we never hit the real backend.
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+
+import { API_URL } from "../api";
+
+export const properties = [
+  { id: 1, name: "Torre Andares", city: "Guadalajara", size_m2: 500, monthly_rent: "85000.00", status: "available", created_at: "" },
+  { id: 2, name: "Bodega Apodaca", city: "Monterrey", size_m2: 3000, monthly_rent: "150000.00", status: "leased", created_at: "" },
+];
+
+export const handlers = [
+  http.get(API_URL, () =>
+    HttpResponse.json({ count: properties.length, next: null, previous: null, results: properties }),
+  ),
+];
+
+export const server = setupServer(...handlers);
