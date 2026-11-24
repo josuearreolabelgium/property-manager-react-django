@@ -1,17 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PropertyForm } from "./components/PropertyForm";
 import { PropertyTable } from "./components/PropertyTable";
 import { useProperties } from "./hooks";
 
+type Theme = "light" | "dark";
+
+// Saved choice first, otherwise follow the operating system setting
+function initialTheme(): Theme {
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export default function App() {
   const [city, setCity] = useState("");
   const [page, setPage] = useState(1);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const { data, isLoading, isError, error, isFetching } = useProperties(city, page);
+
+  // Apply the theme to <html data-theme="..."> (index.css reads it) and remember it
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   return (
     <main>
-      <h1>Property Manager</h1>
+      <div className="header">
+        <h1>Property Manager</h1>
+        <button type="button" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
+      </div>
       <PropertyForm />
 
       <div className="toolbar">
