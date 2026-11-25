@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { PropertyForm } from "./components/PropertyForm";
+import { CityMapModal } from "./components/CityMap";
 import { PropertyTable } from "./components/PropertyTable";
 import type { Currency } from "./api";
 import { useCities, useProperties, useRates } from "./hooks";
@@ -24,6 +25,8 @@ export default function App() {
   const { data: cities } = useCities();
   const [currency, setCurrency] = useState<Currency>("MXN");
   const { data: rates, isError: ratesError } = useRates();
+  // Lives here, not in the table, so the map stays open even if the table re-renders or empties
+  const [mapCity, setMapCity] = useState<string | null>(null);
 
   // Apply the theme to <html data-theme="..."> (index.css reads it) and remember it
   useEffect(() => {
@@ -31,14 +34,18 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Wait until typing pauses for 300 ms before searching, so we don't send a request per keystroke
+  // Wait until typing pauses for 300 ms before searching, so we don't send a request per keystroke.
+  // Only go back to page 1 when the search term really changed (not for extra spaces or on first load).
   useEffect(() => {
     const id = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      const next = searchInput.trim();
+      if (next !== search) {
+        setSearch(next);
+        setPage(1);
+      }
     }, 300);
     return () => clearTimeout(id);
-  }, [searchInput]);
+  }, [searchInput, search]);
 
   return (
     <main>
@@ -86,7 +93,8 @@ export default function App() {
         )}
         {data && data.results.length > 0 && (
           <>
-            <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1} />
+            <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1}
+              onShowMap={setMapCity} />
             <div className="toolbar pager">
               <button disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>← Previous</button>
               <span>Page {page} · {data.count} total</span>
@@ -95,6 +103,8 @@ export default function App() {
           </>
         )}
       </section>
+
+      {mapCity && <CityMapModal city={mapCity} onClose={() => setMapCity(null)} />}
     </main>
   );
 }

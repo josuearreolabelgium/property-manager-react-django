@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 
 import type { Currency, Property } from "../api";
 import { useDeleteProperty, useUpdateProperty } from "../hooks";
-import { CityMapModal, MapPinButton } from "./CityMap";
+import { MapPinButton } from "./CityMap";
 
 const col = createColumnHelper<Property>();
 
@@ -18,13 +18,15 @@ interface Props {
   data: Property[];
   currency: Currency; // currency to show the rent in
   rate: number;       // value of 1 MXN in that currency
+  onShowMap: (city: string) => void; // opens the map pop-up for a city
 }
 
-export function PropertyTable({ data, currency, rate }: Props) {
+export function PropertyTable({ data, currency, rate, onShowMap }: Props) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [mapCity, setMapCity] = useState<string | null>(null); // city whose map pop-up is open
-  const update = useUpdateProperty();
-  const remove = useDeleteProperty();
+  // Only the mutate functions are taken: they keep the same identity between renders, while the
+  // mutation objects are new on every render and would make the columns (and cells) rebuild constantly.
+  const { mutate: updateProperty } = useUpdateProperty();
+  const { mutate: deleteProperty } = useDeleteProperty();
 
   // Columns are memoized so the table does not rebuild them on every render.
   const columns = useMemo(
@@ -35,7 +37,7 @@ export function PropertyTable({ data, currency, rate }: Props) {
         cell: (info) => (
           <span className="city-cell">
             {info.getValue()}
-            <MapPinButton city={info.getValue()} onClick={() => setMapCity(info.getValue())} />
+            <MapPinButton city={info.getValue()} onClick={() => onShowMap(info.getValue())} />
           </span>
         ),
       }),
@@ -54,7 +56,7 @@ export function PropertyTable({ data, currency, rate }: Props) {
           const next = p.status === "available" ? "leased" : "available";
           return (
             <button className={`status ${p.status}`} title={`Mark as ${next}`}
-              onClick={() => update.mutate({ id: p.id, data: { status: next } })}>
+              onClick={() => updateProperty({ id: p.id, data: { status: next } })}>
               {p.status}
             </button>
           );
@@ -65,13 +67,13 @@ export function PropertyTable({ data, currency, rate }: Props) {
         header: "",
         cell: (info) => (
           <button className="danger" aria-label={`Delete ${info.row.original.name}`}
-            onClick={() => remove.mutate(info.row.original.id)}>
+            onClick={() => deleteProperty(info.row.original.id)}>
             Delete
           </button>
         ),
       }),
     ],
-    [update, remove, currency, rate],
+    [updateProperty, deleteProperty, currency, rate, onShowMap],
   );
 
   const table = useReactTable({
@@ -109,7 +111,6 @@ export function PropertyTable({ data, currency, rate }: Props) {
         ))}
       </tbody>
     </table>
-    {mapCity && <CityMapModal city={mapCity} onClose={() => setMapCity(null)} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 
 // Map-pin icon button shown next to a city name
 export function MapPinButton({ city, onClick }: { city: string; onClick: () => void }) {
@@ -14,25 +14,52 @@ export function MapPinButton({ city, onClick }: { city: string; onClick: () => v
   );
 }
 
-// Pop-up with an embedded Google Map of the city; closes on ×, backdrop click or Esc
+// Pop-up with an embedded Google Map of the city. It uses the native <dialog> element, whose
+// showModal() traps focus and makes the page behind it inert. Closes on ×, backdrop click or Esc.
 export function CityMapModal({ city, onClose }: { city: string; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    const dialog = dialogRef.current!;
+    const opener = document.activeElement as HTMLElement | null; // the pin button that was clicked
+    dialog.showModal();
+    closeRef.current?.focus();
+    return () => {
+      if (dialog.open) dialog.close();
+      opener?.focus(); // give focus back to the pin button when the map closes
+    };
+  }, []);
 
   const src = `https://maps.google.com/maps?q=${encodeURIComponent(city)}&z=11&output=embed`;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-label={`Map of ${city}`} onClick={(e) => e.stopPropagation()}>
+    <dialog
+      ref={dialogRef}
+      className="modal"
+      aria-labelledby={titleId}
+      // Clicks on the dialog element itself (not its content) are clicks on the backdrop
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      // Handle Esc ourselves so React state stays in sync with the dialog
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <div className="modal-body">
         <div className="modal-head">
-          <h2>{city}</h2>
-          <button type="button" className="icon-btn" aria-label="Close map" onClick={onClose}>×</button>
+          <h2 id={titleId}>{city}</h2>
+          <button ref={closeRef} type="button" className="icon-btn" aria-label="Close map" onClick={onClose}>×</button>
         </div>
-        <iframe title={`Map of ${city}`} src={src} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+        <iframe title={`Map of ${city}`} src={src} loading="lazy" referrerPolicy="no-referrer" />
       </div>
-    </div>
+    </dialog>
   );
 }

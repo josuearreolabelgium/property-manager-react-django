@@ -45,38 +45,111 @@ describe("App", () => {
     expect(screen.getByText("€4,250.00")).toBeInTheDocument(); // 85,000 MXN x 0.05
   });
 
-  it("opens and closes the map of a city", async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.click(await screen.findByRole("button", { name: "Show map of Monterrey" }));
+  describe("city map", () => {
+    it("opens with focus inside, encodes the city, and closes on Esc returning focus", async () => {
+      const city = "San Pedro Garza García";
+      server.use(http.get(API_URL, () =>
+        HttpResponse.json({ count: 1, next: null, previous: null, results: [{ ...properties[0], city }] })));
+      const user = userEvent.setup();
+      renderApp();
+      const pin = await screen.findByRole("button", { name: `Show map of ${city}` });
+      await user.click(pin);
 
-    const map = screen.getByTitle("Map of Monterrey");
-    expect(map).toHaveAttribute("src", expect.stringContaining("q=Monterrey"));
+      expect(screen.getByRole("dialog", { name: city })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Close map" })).toHaveFocus();
+      expect(screen.getByTitle(`Map of ${city}`))
+        .toHaveAttribute("src", expect.stringContaining("q=San%20Pedro%20Garza%20Garc%C3%ADa&"));
 
-    await user.keyboard("{Escape}");
-    expect(screen.queryByTitle("Map of Monterrey")).not.toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(pin).toHaveFocus();
+    });
+
+    it("closes with the × button", async () => {
+      const user = userEvent.setup();
+      renderApp();
+      await user.click(await screen.findByRole("button", { name: "Show map of Monterrey" }));
+      await user.click(screen.getByRole("button", { name: "Close map" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("closes on a backdrop click but not on a click inside", async () => {
+      const user = userEvent.setup();
+      renderApp();
+      await user.click(await screen.findByRole("button", { name: "Show map of Monterrey" }));
+
+      await user.click(screen.getByRole("heading", { name: "Monterrey" })); // inside the pop-up
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("dialog")); // the dialog element itself = the backdrop
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 
-  it("searches properties through the API", async () => {
-    const searches: (string | null)[] = [];
-    server.use(
-      http.get(API_URL, ({ request }) => {
-        const search = new URL(request.url).searchParams.get("search");
-        searches.push(search);
-        const results = search ? properties.filter((p) => p.name.toLowerCase().includes(search)) : properties;
-        return HttpResponse.json({ count: results.length, next: null, previous: null, results });
-      }),
-    );
-    const user = userEvent.setup();
-    renderApp();
-    await screen.findByText("Bodega Apodaca");
+  describe("search", () => {
+    // Records every list request and serves 2 pages so pagination can be tested
+    function recordRequests() {
+      const requests: { page: string | null; search: string | null; city: string | null }[] = [];
+      server.use(
+        http.get(API_URL, ({ request }) => {
+          const params = new URL(request.url).searchParams;
+          const page = params.get("page");
+          const search = params.get("search");
+          requests.push({ page, search, city: params.get("city") });
+          const results = search ? properties.filter((p) => p.name.toLowerCase().includes(search)) : properties;
+          return HttpResponse.json({
+            count: results.length,
+            next: page === "1" && !search ? "next" : null,
+            previous: page === "2" ? "prev" : null,
+            results,
+          });
+        }),
+      );
+      return requests;
+    }
+    const DEBOUNCE = { timeout: 2000 }; // generous waitFor so slow CI machines don't flake
 
-    await user.type(screen.getByLabelText("Search properties"), "torre");
+    it("sends one debounced request for the full term, combined with the city filter", async () => {
+      const requests = recordRequests();
+      const user = userEvent.setup();
+      renderApp();
+      await screen.findByText("Bodega Apodaca");
+      await user.selectOptions(await screen.findByRole("combobox", { name: "" }), "Guadalajara");
 
-    await waitFor(() => expect(screen.queryByText("Bodega Apodaca")).not.toBeInTheDocument());
-    expect(screen.getByText("Torre Andares")).toBeInTheDocument();
-    expect(searches).toContain("torre");
-    expect(searches).not.toContain("t"); // debounced: no request per keystroke
+      await user.type(screen.getByLabelText("Search properties"), "torre");
+      await waitFor(() => expect(screen.queryByText("Bodega Apodaca")).not.toBeInTheDocument(), DEBOUNCE);
+
+      expect(requests).toEqual([
+        { page: "1", search: null, city: null },
+        { page: "1", search: null, city: "Guadalajara" },
+        { page: "1", search: "torre", city: "Guadalajara" }, // no request per keystroke
+      ]);
+    });
+
+    it("goes back to page 1 when the search term changes", async () => {
+      const requests = recordRequests();
+      const user = userEvent.setup();
+      renderApp();
+      await user.click(await screen.findByRole("button", { name: "Next →" }));
+      await screen.findByText("Page 2 · 2 total");
+
+      await user.type(screen.getByLabelText("Search properties"), "torre");
+      await screen.findByText("Page 1 · 1 total", undefined, DEBOUNCE);
+      expect(requests.at(-1)).toEqual({ page: "1", search: "torre", city: null });
+    });
+
+    it("keeps the current page when only spaces are typed", async () => {
+      const requests = recordRequests();
+      const user = userEvent.setup();
+      renderApp();
+      await user.click(await screen.findByRole("button", { name: "Next →" }));
+      await screen.findByText("Page 2 · 2 total");
+
+      await user.type(screen.getByLabelText("Search properties"), "   ");
+      await new Promise((r) => setTimeout(r, 500)); // let the 300 ms debounce run
+      expect(screen.getByText("Page 2 · 2 total")).toBeInTheDocument();
+      expect(requests.map((r) => r.page)).toEqual(["1", "2"]);
+    });
   });
 
   it("shows an error when the API fails", async () => {
