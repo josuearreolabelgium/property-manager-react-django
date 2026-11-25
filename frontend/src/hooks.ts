@@ -1,6 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createProperty, deleteProperty, fetchProperties, updateProperty, type NewProperty } from "./api";
+import { createProperty, deleteProperty, fetchCities, fetchProperties, updateProperty, type NewProperty } from "./api";
+
+// Cities for the filter dropdown. The key starts with "properties", so the
+// invalidateQueries calls in the mutations below refresh it automatically.
+export function useCities() {
+  return useQuery({
+    queryKey: ["properties", "cities"],
+    queryFn: fetchCities,
+  });
+}
 
 // EXERCISE 5: TanStack Query hooks (the most important part for the interview)
 

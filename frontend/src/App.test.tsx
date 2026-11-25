@@ -26,6 +26,13 @@ describe("App", () => {
     expect(screen.getByText("Bodega Apodaca")).toBeInTheDocument();
   });
 
+  it("fills the city dropdown from the API", async () => {
+    renderApp();
+    expect(await screen.findByRole("option", { name: "Monterrey" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Guadalajara" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "CDMX" })).not.toBeInTheDocument();
+  });
+
   it("shows an error when the API fails", async () => {
     server.use(http.get(API_URL, () => HttpResponse.json({ detail: "boom" }, { status: 500 })));
     renderApp();

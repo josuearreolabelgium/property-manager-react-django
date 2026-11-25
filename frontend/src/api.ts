@@ -40,6 +40,10 @@ export async function fetchProperties(city: string, page: number): Promise<Pagin
 
 }
 
+export async function fetchCities(): Promise<string[]> {
+  return handle(await fetch(`${API_URL}cities/`));
+}
+
 export async function createProperty(data: NewProperty): Promise<Property> {
   return handle(
     await fetch(API_URL, {

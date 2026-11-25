@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { PropertyForm } from "./components/PropertyForm";
 import { PropertyTable } from "./components/PropertyTable";
-import { useProperties } from "./hooks";
+import { useCities, useProperties } from "./hooks";
 
 type Theme = "light" | "dark";
 
@@ -18,6 +18,7 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const { data, isLoading, isError, error, isFetching } = useProperties(city, page);
+  const { data: cities } = useCities();
 
   // Apply the theme to <html data-theme="..."> (index.css reads it) and remember it
   useEffect(() => {
@@ -38,9 +39,7 @@ export default function App() {
       <div className="toolbar">
         <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }}>
           <option value="">All cities</option>
-          <option>Guadalajara</option>
-          <option>CDMX</option>
-          <option>Monterrey</option>
+          {cities?.map((c) => <option key={c}>{c}</option>)}
         </select>
         {isFetching && <span>Updating...</span>}
       </div>

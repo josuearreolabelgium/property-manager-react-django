@@ -64,3 +64,12 @@ def test_delete_property(client, sample):
     res = client.delete(f"{URL}{sample.id}/")
     assert res.status_code == 204
     assert Property.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_list_cities(client, sample):
+    Property.objects.create(name="Bodega", city="Monterrey", size_m2=900, monthly_rent="40000")
+    Property.objects.create(name="Otra", city="Guadalajara", size_m2=100, monthly_rent="1000")
+    res = client.get(f"{URL}cities/")
+    assert res.status_code == 200
+    assert res.data == ["Guadalajara", "Monterrey"]

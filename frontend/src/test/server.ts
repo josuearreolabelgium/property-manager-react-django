@@ -10,6 +10,9 @@ export const properties = [
 ];
 
 export const handlers = [
+  http.get(`${API_URL}cities/`, () =>
+    HttpResponse.json([...new Set(properties.map((p) => p.city))].sort()),
+  ),
   http.get(API_URL, () =>
     HttpResponse.json({ count: properties.length, next: null, previous: null, results: properties }),
   ),
