@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 
 import type { Currency, Property } from "../api";
 import { useDeleteProperty, useUpdateProperty } from "../hooks";
+import { CityMapModal, MapPinButton } from "./CityMap";
 
 const col = createColumnHelper<Property>();
 
@@ -21,6 +22,7 @@ interface Props {
 
 export function PropertyTable({ data, currency, rate }: Props) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [mapCity, setMapCity] = useState<string | null>(null); // city whose map pop-up is open
   const update = useUpdateProperty();
   const remove = useDeleteProperty();
 
@@ -28,7 +30,15 @@ export function PropertyTable({ data, currency, rate }: Props) {
   const columns = useMemo(
     () => [
       col.accessor("name", { header: "Name" }),
-      col.accessor("city", { header: "City" }),
+      col.accessor("city", {
+        header: "City",
+        cell: (info) => (
+          <span className="city-cell">
+            {info.getValue()}
+            <MapPinButton city={info.getValue()} onClick={() => setMapCity(info.getValue())} />
+          </span>
+        ),
+      }),
       col.accessor("size_m2", { header: "Size (m²)" }),
       col.accessor((row) => Number(row.monthly_rent), {
         id: "monthly_rent",
@@ -43,7 +53,8 @@ export function PropertyTable({ data, currency, rate }: Props) {
           const p = info.row.original;
           const next = p.status === "available" ? "leased" : "available";
           return (
-            <button onClick={() => update.mutate({ id: p.id, data: { status: next } })}>
+            <button className={`status ${p.status}`} title={`Mark as ${next}`}
+              onClick={() => update.mutate({ id: p.id, data: { status: next } })}>
               {p.status}
             </button>
           );
@@ -53,7 +64,7 @@ export function PropertyTable({ data, currency, rate }: Props) {
         id: "actions",
         header: "",
         cell: (info) => (
-          <button aria-label={`Delete ${info.row.original.name}`}
+          <button className="danger" aria-label={`Delete ${info.row.original.name}`}
             onClick={() => remove.mutate(info.row.original.id)}>
             Delete
           </button>
@@ -73,6 +84,7 @@ export function PropertyTable({ data, currency, rate }: Props) {
   });
 
   return (
+    <div className="table-wrap">
     <table>
       <thead>
         {table.getHeaderGroups().map((hg) => (
@@ -97,5 +109,7 @@ export function PropertyTable({ data, currency, rate }: Props) {
         ))}
       </tbody>
     </table>
+    {mapCity && <CityMapModal city={mapCity} onClose={() => setMapCity(null)} />}
+    </div>
   );
 }

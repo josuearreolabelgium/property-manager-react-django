@@ -18,6 +18,8 @@ class PropertyViewSet(viewsets.ModelViewSet):
     serializer_class = PropertySerializer
     # Enables filtering by exact match, e.g. /properties/?city=Madrid&status=available
     filterset_fields = ["city", "status"]
+    # Enables text search (case-insensitive, partial match), e.g. /properties/?search=torre
+    search_fields = ["name", "city"]
 
     # Extra endpoint GET /api/properties/cities/ (detail=False = not tied to one property)
     @action(detail=False)

@@ -73,3 +73,12 @@ def test_list_cities(client, sample):
     res = client.get(f"{URL}cities/")
     assert res.status_code == 200
     assert res.data == ["Guadalajara", "Monterrey"]
+
+
+@pytest.mark.django_db
+def test_search_by_name_or_city(client, sample):
+    Property.objects.create(name="Bodega", city="Monterrey", size_m2=900, monthly_rent="40000")
+    res = client.get(URL, {"search": "torre"})  # partial, case-insensitive name match
+    assert [p["name"] for p in res.data["results"]] == ["Torre Andares"]
+    res = client.get(URL, {"search": "monter"})  # also matches city
+    assert [p["name"] for p in res.data["results"]] == ["Bodega"]

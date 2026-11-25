@@ -33,9 +33,10 @@ async function handle<T>(res: Response): Promise<T> {
 // EXERCISE 4: the HTTP calls
 // Look at updateProperty and deleteProperty below as examples.
 
-export async function fetchProperties(city: string, page: number): Promise<Paginated<Property>> {
+export async function fetchProperties(city: string, page: number, search = ""): Promise<Paginated<Property>> {
   const params = new URLSearchParams({ page: String(page) });
   if (city) params.set("city", city);
+  if (search) params.set("search", search);
   return handle(await fetch(`${API_URL}?${params}`));
 
 }

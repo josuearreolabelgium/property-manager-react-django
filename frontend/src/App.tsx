@@ -18,7 +18,9 @@ export default function App() {
   const [city, setCity] = useState("");
   const [page, setPage] = useState(1);
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const { data, isLoading, isError, error, isFetching } = useProperties(city, page);
+  const [searchInput, setSearchInput] = useState(""); // what is typed in the box
+  const [search, setSearch] = useState("");           // what is sent to the API
+  const { data, isLoading, isError, error, isFetching } = useProperties(city, page, search);
   const { data: cities } = useCities();
   const [currency, setCurrency] = useState<Currency>("MXN");
   const { data: rates, isError: ratesError } = useRates();
@@ -29,44 +31,70 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  // Wait until typing pauses for 300 ms before searching, so we don't send a request per keystroke
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
   return (
     <main>
-      <div className="header">
-        <h1>Property Manager</h1>
-        <button type="button" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+      <header className="header">
+        <div>
+          <h1>Property Manager</h1>
+          <p className="subtitle">Track your commercial properties, rents and availability.</p>
+        </div>
+        <button type="button" className="theme-toggle" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+          <span aria-hidden="true">{theme === "dark" ? "☀️ " : "🌙 "}</span>
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </button>
-      </div>
-      <PropertyForm />
+      </header>
 
-      <div className="toolbar">
-        <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }}>
-          <option value="">All cities</option>
-          {cities?.map((c) => <option key={c}>{c}</option>)}
-        </select>
-        {/* EUR and USD stay disabled until the exchange rates have loaded */}
-        <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-          <option value="MXN">MXN</option>
-          <option value="EUR" disabled={!rates}>EUR</option>
-          <option value="USD" disabled={!rates}>USD</option>
-        </select>
-        {ratesError && <span className="error">Exchange rates unavailable</span>}
-        {isFetching && <span>Updating...</span>}
-      </div>
+      <section className="card">
+        <h2>Add a property</h2>
+        <PropertyForm />
+      </section>
 
-      {isLoading && <p>Loading...</p>}
-      {isError && <p className="error">Could not load properties: {error.message}</p>}
-      {data && data.results.length === 0 && <p>No properties found.</p>}
-      {data && data.results.length > 0 && (
-        <>
-          <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1} />
+      <section className="card">
+        <div className="card-head">
+          <h2>Properties{data ? <span className="muted"> · {data.count}</span> : null}</h2>
           <div className="toolbar">
-            <button disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>Previous</button>
-            <span>Page {page} · {data.count} total</span>
-            <button disabled={!data.next} onClick={() => setPage((p) => p + 1)}>Next</button>
+            {isFetching && <span className="muted">Updating...</span>}
+            {ratesError && <span className="error">Exchange rates unavailable</span>}
+            <input type="search" className="search" placeholder="Search properties..." aria-label="Search properties"
+              value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+            <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }}>
+              <option value="">All cities</option>
+              {cities?.map((c) => <option key={c}>{c}</option>)}
+            </select>
+            {/* EUR and USD stay disabled until the exchange rates have loaded */}
+            <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+              <option value="MXN">MXN</option>
+              <option value="EUR" disabled={!rates}>EUR</option>
+              <option value="USD" disabled={!rates}>USD</option>
+            </select>
           </div>
-        </>
-      )}
+        </div>
+
+        {isLoading && <p className="muted">Loading...</p>}
+        {isError && <p className="error">Could not load properties: {error.message}</p>}
+        {data && data.results.length === 0 && (
+          <p className="muted">{search ? `No properties match "${search}".` : "No properties found."}</p>
+        )}
+        {data && data.results.length > 0 && (
+          <>
+            <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1} />
+            <div className="toolbar pager">
+              <button disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>← Previous</button>
+              <span>Page {page} · {data.count} total</span>
+              <button disabled={!data.next} onClick={() => setPage((p) => p + 1)}>Next →</button>
+            </div>
+          </>
+        )}
+      </section>
     </main>
   );
 }

@@ -29,10 +29,10 @@ export function useCities() {
 //   queryKey: ["properties", { city, page }]   <- filters in the key = separate cache per filter
 //   queryFn:  a function that calls fetchProperties(city, page)
 //   placeholderData: keepPreviousData          <- keeps the old page visible while loading
-export function useProperties(city: string, page: number) {
+export function useProperties(city: string, page: number, search = "") {
   return useQuery({
-    queryKey: ["properties", { city, page }],
-    queryFn: () => fetchProperties(city, page),
+    queryKey: ["properties", { city, page, search }],
+    queryFn: () => fetchProperties(city, page, search),
     placeholderData: keepPreviousData,
   });
 }

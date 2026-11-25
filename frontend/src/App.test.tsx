@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { API_URL } from "./api";
 import App from "./App";
-import { server } from "./test/server";
+import { properties, server } from "./test/server";
 
 function renderApp() {
   // New client per test, no retries, so tests are isolated and fail fast.
@@ -43,6 +43,40 @@ describe("App", () => {
 
     expect(screen.getByText("Rent (EUR)")).toBeInTheDocument();
     expect(screen.getByText("€4,250.00")).toBeInTheDocument(); // 85,000 MXN x 0.05
+  });
+
+  it("opens and closes the map of a city", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(await screen.findByRole("button", { name: "Show map of Monterrey" }));
+
+    const map = screen.getByTitle("Map of Monterrey");
+    expect(map).toHaveAttribute("src", expect.stringContaining("q=Monterrey"));
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTitle("Map of Monterrey")).not.toBeInTheDocument();
+  });
+
+  it("searches properties through the API", async () => {
+    const searches: (string | null)[] = [];
+    server.use(
+      http.get(API_URL, ({ request }) => {
+        const search = new URL(request.url).searchParams.get("search");
+        searches.push(search);
+        const results = search ? properties.filter((p) => p.name.toLowerCase().includes(search)) : properties;
+        return HttpResponse.json({ count: results.length, next: null, previous: null, results });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByText("Bodega Apodaca");
+
+    await user.type(screen.getByLabelText("Search properties"), "torre");
+
+    await waitFor(() => expect(screen.queryByText("Bodega Apodaca")).not.toBeInTheDocument());
+    expect(screen.getByText("Torre Andares")).toBeInTheDocument();
+    expect(searches).toContain("torre");
+    expect(searches).not.toContain("t"); // debounced: no request per keystroke
   });
 
   it("shows an error when the API fails", async () => {
