@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 import { PropertyForm } from "./components/PropertyForm";
 import { PropertyTable } from "./components/PropertyTable";
-import { useCities, useProperties } from "./hooks";
+import type { Currency } from "./api";
+import { useCities, useProperties, useRates } from "./hooks";
 
 type Theme = "light" | "dark";
 
@@ -19,6 +20,8 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const { data, isLoading, isError, error, isFetching } = useProperties(city, page);
   const { data: cities } = useCities();
+  const [currency, setCurrency] = useState<Currency>("MXN");
+  const { data: rates, isError: ratesError } = useRates();
 
   // Apply the theme to <html data-theme="..."> (index.css reads it) and remember it
   useEffect(() => {
@@ -41,6 +44,13 @@ export default function App() {
           <option value="">All cities</option>
           {cities?.map((c) => <option key={c}>{c}</option>)}
         </select>
+        {/* EUR and USD stay disabled until the exchange rates have loaded */}
+        <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+          <option value="MXN">MXN</option>
+          <option value="EUR" disabled={!rates}>EUR</option>
+          <option value="USD" disabled={!rates}>USD</option>
+        </select>
+        {ratesError && <span className="error">Exchange rates unavailable</span>}
         {isFetching && <span>Updating...</span>}
       </div>
 
@@ -49,7 +59,7 @@ export default function App() {
       {data && data.results.length === 0 && <p>No properties found.</p>}
       {data && data.results.length > 0 && (
         <>
-          <PropertyTable data={data.results} />
+          <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1} />
           <div className="toolbar">
             <button disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>Previous</button>
             <span>Page {page} · {data.count} total</span>

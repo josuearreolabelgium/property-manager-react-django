@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,18 @@ describe("App", () => {
     expect(await screen.findByRole("option", { name: "Monterrey" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Guadalajara" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "CDMX" })).not.toBeInTheDocument();
+  });
+
+  it("converts the rent when another currency is selected", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    expect(await screen.findByText("MX$85,000.00")).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByRole("option", { name: "EUR" })).toBeEnabled());
+    await user.selectOptions(screen.getByLabelText("Currency"), "EUR");
+
+    expect(screen.getByText("Rent (EUR)")).toBeInTheDocument();
+    expect(screen.getByText("€4,250.00")).toBeInTheDocument(); // 85,000 MXN x 0.05
   });
 
   it("shows an error when the API fails", async () => {

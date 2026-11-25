@@ -44,6 +44,19 @@ export async function fetchCities(): Promise<string[]> {
   return handle(await fetch(`${API_URL}cities/`));
 }
 
+// Rents are stored in MXN; these are the other currencies they can be shown in
+export type Currency = "MXN" | "EUR" | "USD";
+export type Rates = Record<Currency, number>;
+
+// Daily European Central Bank rates, free and without an API key
+export const RATES_URL = "https://api.frankfurter.dev/v1/latest?base=MXN&symbols=EUR,USD";
+
+// How much 1 MXN is worth in each currency, e.g. { MXN: 1, EUR: 0.047, USD: 0.052 }
+export async function fetchRates(): Promise<Rates> {
+  const body = await handle<{ rates: { EUR: number; USD: number } }>(await fetch(RATES_URL));
+  return { MXN: 1, ...body.rates };
+}
+
 export async function createProperty(data: NewProperty): Promise<Property> {
   return handle(
     await fetch(API_URL, {

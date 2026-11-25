@@ -1,6 +1,17 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createProperty, deleteProperty, fetchCities, fetchProperties, updateProperty, type NewProperty } from "./api";
+import {
+  createProperty, deleteProperty, fetchCities, fetchProperties, fetchRates, updateProperty, type NewProperty,
+} from "./api";
+
+// Exchange rates for the currency dropdown. They change once a day, so cache them for an hour.
+export function useRates() {
+  return useQuery({
+    queryKey: ["rates"],
+    queryFn: fetchRates,
+    staleTime: 60 * 60 * 1000,
+  });
+}
 
 // Cities for the filter dropdown. The key starts with "properties", so the
 // invalidateQueries calls in the mutations below refresh it automatically.

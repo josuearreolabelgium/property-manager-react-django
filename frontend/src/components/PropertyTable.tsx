@@ -8,12 +8,18 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 
-import type { Property } from "../api";
+import type { Currency, Property } from "../api";
 import { useDeleteProperty, useUpdateProperty } from "../hooks";
 
 const col = createColumnHelper<Property>();
 
-export function PropertyTable({ data }: { data: Property[] }) {
+interface Props {
+  data: Property[];
+  currency: Currency; // currency to show the rent in
+  rate: number;       // value of 1 MXN in that currency
+}
+
+export function PropertyTable({ data, currency, rate }: Props) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const update = useUpdateProperty();
   const remove = useDeleteProperty();
@@ -26,8 +32,10 @@ export function PropertyTable({ data }: { data: Property[] }) {
       col.accessor("size_m2", { header: "Size (m²)" }),
       col.accessor((row) => Number(row.monthly_rent), {
         id: "monthly_rent",
-        header: "Rent (MXN)",
-        cell: (info) => info.getValue().toLocaleString("es-MX"),
+        header: `Rent (${currency})`,
+        // Sorting still uses the MXN value, which gives the same order in any currency
+        cell: (info) =>
+          (info.getValue() * rate).toLocaleString("en-US", { style: "currency", currency }),
       }),
       col.accessor("status", {
         header: "Status",
@@ -52,7 +60,7 @@ export function PropertyTable({ data }: { data: Property[] }) {
         ),
       }),
     ],
-    [update, remove],
+    [update, remove, currency, rate],
   );
 
   const table = useReactTable({

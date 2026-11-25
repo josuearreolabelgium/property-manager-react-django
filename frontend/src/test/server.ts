@@ -2,7 +2,7 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
-import { API_URL } from "../api";
+import { API_URL, RATES_URL } from "../api";
 
 export const properties = [
   { id: 1, name: "Torre Andares", city: "Guadalajara", size_m2: 500, monthly_rent: "85000.00", status: "available", created_at: "" },
@@ -10,6 +10,10 @@ export const properties = [
 ];
 
 export const handlers = [
+  // Fixed rates so tests never call the real exchange-rate service
+  http.get(RATES_URL.split("?")[0], () =>
+    HttpResponse.json({ amount: 1, base: "MXN", date: "", rates: { EUR: 0.05, USD: 0.06 } }),
+  ),
   http.get(`${API_URL}cities/`, () =>
     HttpResponse.json([...new Set(properties.map((p) => p.city))].sort()),
   ),
