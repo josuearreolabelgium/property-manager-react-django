@@ -303,6 +303,21 @@ describe("App", () => {
       await user.click(form.getByRole("button", { name: "Add property" }));
       expect(await form.findByText(/Could not save/)).toBeInTheDocument();
     });
+
+    it("shows errors for fields that have no input (e.g. status) as a general error", async () => {
+      server.use(http.post(API_URL, () => HttpResponse.json(
+        { status: ['"sold" is not a valid choice.'] }, { status: 400 },
+      )));
+      const user = userEvent.setup();
+      renderApp();
+      await user.click(await screen.findByRole("button", { name: "+ New property" }));
+      const form = within(screen.getByRole("dialog", { name: "New property" }));
+      await user.type(form.getByLabelText("Name"), "X");
+      await user.type(form.getByLabelText("City"), "Y");
+      await user.type(form.getByLabelText("Size (m²)"), "10");
+      await user.click(form.getByRole("button", { name: "Add property" }));
+      expect(await form.findByText('Could not save: "sold" is not a valid choice.')).toBeInTheDocument();
+    });
   });
 
   it("labels the price of properties for sale as Price, and rentals as Monthly rent", async () => {

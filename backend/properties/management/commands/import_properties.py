@@ -12,9 +12,12 @@ from properties.serializers import PropertySerializer
 TYPES = {"oficina": "office", "industrial": "industrial", "nave industrial": "industrial",
          "local": "retail", "local comercial": "retail", "comercial": "retail", "terreno": "land"}
 # "Venta/Renta" buildings can also be leased, so they are imported as rentals
+# Every building in the CSV is for rent: rows marked "Venta/Renta" are imported as rent, and their
+# price is the monthly rent
 OPERATIONS = {"renta": "rent", "venta": "sale", "venta/renta": "rent", "renta/venta": "rent"}
-# The whole price must be one amount, e.g. "$85,000 MXN", "85000.50 USD" or "$32,000"
-PRICE = re.compile(r"^\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(MXN|USD|EUR)?$", re.IGNORECASE)
+# The whole price must be one amount, e.g. "$85,000 MXN", "85000.50 USD" or "$32,000". Commas are only
+# allowed as thousands separators, so "1,50" or "12,34" is rejected instead of read as 150 or 1234
+PRICE = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(MXN|USD|EUR)?$", re.IGNORECASE)
 # "A consultar (USD)" = price on request, quoted in USD
 ON_REQUEST = re.compile(r"^a consultar(?:\s*\((MXN|USD|EUR)\))?$", re.IGNORECASE)
 

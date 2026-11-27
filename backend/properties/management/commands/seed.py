@@ -13,12 +13,13 @@ DATA = [
 
 
 class Command(BaseCommand):
-    help = "Load sample properties (adds or updates them; other properties, e.g. imported ones, are kept)"
+    help = "Add sample properties that do not exist yet (existing ones, and any changes made to them, are kept)"
 
     def handle(self, *args, **options):
+        added = 0
         for name, property_type, city, size, rent, status in DATA:
-            Property.objects.update_or_create(name=name, defaults={
+            added += Property.objects.get_or_create(name=name, defaults={
                 "property_type": property_type, "city": city, "size_m2": size,
                 "monthly_rent": rent, "rent_currency": "MXN", "status": status,
-            })
-        self.stdout.write(self.style.SUCCESS(f"Loaded {len(DATA)} sample properties"))
+            })[1]
+        self.stdout.write(self.style.SUCCESS(f"Added {added} sample properties"))

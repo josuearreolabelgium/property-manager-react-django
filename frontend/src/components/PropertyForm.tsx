@@ -10,6 +10,11 @@ const EMPTY: NewProperty = {
   name: "", property_type: "office", operation: "rent", address: "", city: "", postal_code: "",
   size_m2: 0, size_max_m2: null, monthly_rent: null, rent_currency: "MXN", status: "available",
 };
+// Fields that have an input below, so their errors are shown next to it
+const FIELDS_WITH_INPUT = new Set<string>([
+  "name", "property_type", "operation", "address", "city", "postal_code", "size_m2", "size_max_m2",
+  "monthly_rent", "rent_currency",
+]);
 
 // A labelled input with the server's error for that field (if any) shown under it. The error is
 // outside the <label> (so it is not read as part of the field's name) and linked with aria-describedby.
@@ -42,9 +47,11 @@ export function PropertyForm({ onCreated }: { onCreated?: (property: Property) =
   // Errors the API returned per field, e.g. { name: "property with this name already exists." }
   const errors = create.error instanceof ApiError ? create.error.fieldErrors() : {};
   const fieldError = (key: keyof NewProperty) => errors[key];
-  // Errors that do not belong to one input (e.g. the server is down)
-  const otherError = create.isError && !Object.keys(errors).some((k) => k in EMPTY)
-    ? (errors.non_field_errors ?? errors.detail ?? create.error.message)
+  // Errors with no input of their own: the server is down, or a field the form has no input for (e.g. status)
+  const leftover = Object.entries(errors).filter(([key]) => !FIELDS_WITH_INPUT.has(key));
+  const otherError = !create.isError ? null
+    : Object.keys(errors).length === 0 ? create.error.message
+    : leftover.length > 0 ? leftover.map(([, message]) => message).join(" ")
     : null;
 
   function onSubmit(e: FormEvent) {

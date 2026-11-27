@@ -23,13 +23,8 @@ export function useCities() {
   });
 }
 
-// EXERCISE 5: TanStack Query hooks (the most important part for the interview)
-
-// TODO 5.1: READ the list
-// return useQuery({ ... }) with:
-//   queryKey: ["properties", { city, page }]   <- filters in the key = separate cache per filter
-//   queryFn:  a function that calls fetchProperties(city, page)
-//   placeholderData: keepPreviousData          <- keeps the old page visible while loading
+// One page of the list. The filters are part of the key, so each combination is cached separately;
+// keepPreviousData keeps the current page visible while the next one loads
 export function useProperties(filters: Filters) {
   return useQuery({
     queryKey: ["properties", filters],
@@ -38,7 +33,7 @@ export function useProperties(filters: Filters) {
   });
 }
 
-// Creates a property, then refreshes the list and the city dropdown
+// Creates a property, then refreshes the list and the city dropdown (both keys start with "properties")
 export function useCreateProperty() {
   const qc = useQueryClient();
   return useMutation({
@@ -56,14 +51,12 @@ export function useUpdateProperty() {
   });
 }
 
-// TODO 5.3: DELETE
-// Same pattern as useUpdateProperty, but mutationFn receives an id: number
-// and calls deleteProperty(id)
+// Deletes a property, then refreshes the list and the city dropdown
 export function useDeleteProperty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (  id: number ) => deleteProperty(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["properties"] }),  
+    mutationFn: (id: number) => deleteProperty(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["properties"] }),
   });
 }
 

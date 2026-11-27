@@ -65,8 +65,7 @@ async function handle<T>(res: Response): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
-// EXERCISE 4: the HTTP calls
-// Look at updateProperty and deleteProperty below as examples.
+// HTTP calls. Failed responses throw an ApiError (see handle above)
 
 // Everything the list can be filtered and sorted by; empty strings mean "no filter"
 export interface Filters {

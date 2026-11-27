@@ -211,6 +211,9 @@ def test_import_csv(import_csv):
     ("100", "200", "$25 USD/m2", "price '$25 USD/m2'"),       # price per m², not a monthly price
     ("100", "200", "$85,000 MXN + IVA 16%", "price"),
     ("100", "200", "$100-$200 USD", "price"),
+    ("100", "200", "1,50 USD", "price '1,50 USD'"),          # decimal comma, not thousands
+    ("100", "200", "$1,2,3", "price"),
+    ("100", "200", "$1,,000", "price"),
     ("NaN", "200", "A consultar (USD)", "size 'NaN' is not a number"),
     ("100", "Infinity", "A consultar (USD)", "size 'Infinity' is not a number"),
 ])
@@ -229,6 +232,15 @@ def test_seed_keeps_imported_properties(import_csv):
     call_command("seed")  # running it again does not duplicate
     assert Property.objects.count() == 6
     assert Property.objects.get(name="Bodega Apodaca").property_type == "industrial"
+
+
+@pytest.mark.django_db
+def test_seed_does_not_reset_changes():
+    call_command("seed")
+    Property.objects.filter(name="Torre Andares").update(status="leased", monthly_rent="90000")
+    call_command("seed")
+    torre = Property.objects.get(name="Torre Andares")
+    assert (torre.status, str(torre.monthly_rent)) == ("leased", "90000.00")
 
 
 @pytest.mark.django_db
