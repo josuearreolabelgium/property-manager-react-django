@@ -5,8 +5,12 @@ import { setupServer } from "msw/node";
 import { API_URL, RATES_URL } from "../api";
 
 export const properties = [
-  { id: 1, name: "Torre Andares", city: "Guadalajara", size_m2: 500, monthly_rent: "85000.00", status: "available", created_at: "" },
-  { id: 2, name: "Bodega Apodaca", city: "Monterrey", size_m2: 3000, monthly_rent: "150000.00", status: "leased", created_at: "" },
+  { id: 1, name: "Torre Andares", property_type: "office", operation: "rent", address: "Av. Patria 1891",
+    city: "Guadalajara", postal_code: "45116", size_m2: 500, size_max_m2: null, monthly_rent: "85000.00",
+    rent_currency: "MXN", status: "available", created_at: "" },
+  { id: 2, name: "Bodega Apodaca", property_type: "industrial", operation: "rent", address: "",
+    city: "Monterrey", postal_code: "", size_m2: 3000, size_max_m2: null, monthly_rent: "150000.00",
+    rent_currency: "MXN", status: "leased", created_at: "" },
 ];
 
 export const handlers = [

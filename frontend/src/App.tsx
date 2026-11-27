@@ -1,12 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 
-import { PropertyForm } from "./components/PropertyForm";
+import { ApiError, OPERATION_LABELS, TYPE_LABELS, type Currency } from "./api";
 import { CityMapModal } from "./components/CityMap";
+import { Modal } from "./components/Modal";
+import { PropertyCard } from "./components/PropertyCard";
+import { PropertyForm } from "./components/PropertyForm";
 import { PropertyTable } from "./components/PropertyTable";
-import type { Currency } from "./api";
+import { mapQuery, mapUrl } from "./format";
 import { useCities, useProperties, useRates } from "./hooks";
 
 type Theme = "light" | "dark";
+type View = "cards" | "table";
+
+// Sort options; the value is sent to the API as ?ordering=
+const SORTS = [
+  { value: "-created_at", label: "Newest first" },
+  { value: "created_at", label: "Oldest first" },
+  { value: "-size_m2", label: "Size: largest first" },
+  { value: "size_m2", label: "Size: smallest first" },
+  { value: "name", label: "Name: A to Z" },
+];
 
 // Saved choice first, otherwise follow the operating system setting
 function initialTheme(): Theme {
@@ -16,17 +29,43 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
-  const [city, setCity] = useState("");
-  const [page, setPage] = useState(1);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [view, setView] = useState<View>("cards");
+  // Filters sent to the API
+  const [city, setCity] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [operation, setOperation] = useState("");
+  const [ordering, setOrdering] = useState(SORTS[0].value);
+  const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState(""); // what is typed in the box
   const [search, setSearch] = useState("");           // what is sent to the API
-  const { data, isLoading, isError, error, isFetching } = useProperties(city, page, search);
-  const { data: cities } = useCities();
   const [currency, setCurrency] = useState<Currency>("MXN");
-  const { data: rates, isError: ratesError } = useRates();
-  // Lives here, not in the table, so the map stays open even if the table re-renders or empties
+  // "New property" pop-up, map pop-up (table view) and the listing shown on the side map (cards view)
+  const [adding, setAdding] = useState(false);
   const [mapCity, setMapCity] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const { data, isLoading, isError, error, isFetching } =
+    useProperties({ city, page, search, propertyType, operation, ordering });
+  const { data: cities } = useCities();
+  const { data: rates, isError: ratesError } = useRates();
+
+  // The page no longer exists (e.g. the only property on the last page was deleted, so the API
+  // answers 404): go back one page instead of showing an error. Updating state during render
+  // like this is React's recommended way to adjust state from data; it re-renders before painting.
+  const pageGone = isError && page > 1 && error instanceof ApiError && error.status === 404;
+  if (pageGone) setPage(page - 1);
+
+  // The side map shows the chosen listing, or the first one on the page
+  const selected = data?.results.find((p) => p.id === selectedId) ?? data?.results[0];
+
+  // Every filter change starts again from page 1
+  function changeFilter(setter: (value: string) => void) {
+    return (e: ChangeEvent<HTMLSelectElement>) => {
+      setter(e.target.value);
+      setPage(1);
+    };
+  }
 
   // Apply the theme to <html data-theme="..."> (index.css reads it) and remember it
   useEffect(() => {
@@ -48,32 +87,40 @@ export default function App() {
   }, [searchInput, search]);
 
   return (
-    <main>
-      <header className="header">
-        <div>
-          <h1>Property Manager</h1>
-          <p className="subtitle">Track your commercial properties, rents and availability.</p>
+    <>
+      <header className="topbar">
+        <div className="container topbar-inner">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true">PM</span>
+            <span className="brand-name">Property Manager</span>
+          </div>
+          <div className="topbar-actions">
+            <button type="button" className="theme-toggle"
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+              <span aria-hidden="true">{theme === "dark" ? "☀️ " : "🌙 "}</span>
+              {theme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
+            <button type="button" className="primary" onClick={() => setAdding(true)}>+ New property</button>
+          </div>
         </div>
-        <button type="button" className="theme-toggle" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
-          <span aria-hidden="true">{theme === "dark" ? "☀️ " : "🌙 "}</span>
-          {theme === "dark" ? "Light mode" : "Dark mode"}
-        </button>
       </header>
 
-      <section className="card">
-        <h2>Add a property</h2>
-        <PropertyForm />
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>Properties{data ? <span className="muted"> · {data.count}</span> : null}</h2>
-          <div className="toolbar">
-            {isFetching && <span className="muted">Updating...</span>}
-            {ratesError && <span className="error">Exchange rates unavailable</span>}
-            <input type="search" className="search" placeholder="Search properties..." aria-label="Search properties"
-              value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
-            <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }}>
+      {/* Search and filters */}
+      <section className="searchbar">
+        <div className="container">
+          <h1>Commercial properties</h1>
+          <div className="filters">
+            <input type="search" className="search" placeholder="Search by name, address, city or postal code"
+              aria-label="Search properties" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+            <select aria-label="Filter by operation" value={operation} onChange={changeFilter(setOperation)}>
+              <option value="">Rent or sale</option>
+              {Object.entries(OPERATION_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+            <select aria-label="Filter by type" value={propertyType} onChange={changeFilter(setPropertyType)}>
+              <option value="">All types</option>
+              {Object.entries(TYPE_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+            <select aria-label="City" value={city} onChange={changeFilter(setCity)}>
               <option value="">All cities</option>
               {cities?.map((c) => <option key={c}>{c}</option>)}
             </select>
@@ -85,26 +132,73 @@ export default function App() {
             </select>
           </div>
         </div>
+      </section>
+
+      <main className="container">
+        <div className="results-head">
+          <p className="results-count">
+            {data && <><strong>{data.count}</strong> {data.count === 1 ? "property" : "properties"} found</>}
+            {isFetching && <span className="muted"> · Updating...</span>}
+            {ratesError && <span className="error"> · Exchange rates unavailable</span>}
+          </p>
+          <div className="results-tools">
+            <label className="sort">
+              <span className="muted">Sort by</span>
+              <select value={ordering} onChange={changeFilter(setOrdering)}>
+                {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </label>
+            <div className="segmented" role="group" aria-label="View">
+              <button type="button" aria-pressed={view === "cards"} onClick={() => setView("cards")}>Cards</button>
+              <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>Table</button>
+            </div>
+          </div>
+        </div>
 
         {isLoading && <p className="muted">Loading...</p>}
-        {isError && <p className="error">Could not load properties: {error.message}</p>}
+        {isError && !pageGone && <p className="error">Could not load properties: {error.message}</p>}
         {data && data.results.length === 0 && (
-          <p className="muted">{search ? `No properties match "${search}".` : "No properties found."}</p>
+          <p className="empty muted">{search ? `No properties match "${search}".` : "No properties found."}</p>
         )}
+
         {data && data.results.length > 0 && (
           <>
-            <PropertyTable data={data.results} currency={currency} rate={rates?.[currency] ?? 1}
-              onShowMap={setMapCity} />
-            <div className="toolbar pager">
+            {view === "cards" ? (
+              <div className="results">
+                <div className="listings">
+                  {data.results.map((p) => (
+                    <PropertyCard key={p.id} property={p} currency={currency} rates={rates}
+                      selected={p.id === selected?.id} onShowOnMap={() => setSelectedId(p.id)} />
+                  ))}
+                </div>
+                {/* Sticky map next to the list, pointed at the selected listing */}
+                {selected && (
+                  <aside className="map-panel">
+                    <iframe title={`Map of ${selected.name}`} src={mapUrl(mapQuery(selected))} loading="lazy"
+                      referrerPolicy="no-referrer" />
+                  </aside>
+                )}
+              </div>
+            ) : (
+              <PropertyTable data={data.results} currency={currency} rates={rates} onShowMap={setMapCity} />
+            )}
+
+            <div className="pager">
               <button disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>← Previous</button>
               <span>Page {page} · {data.count} total</span>
               <button disabled={!data.next} onClick={() => setPage((p) => p + 1)}>Next →</button>
             </div>
           </>
         )}
-      </section>
+      </main>
 
+      {adding && (
+        <Modal title="New property" wide onClose={() => setAdding(false)}>
+          {/* After saving, close the pop-up and point the side map at the new building */}
+          <PropertyForm onCreated={(p) => { setAdding(false); setSelectedId(p.id); }} />
+        </Modal>
+      )}
       {mapCity && <CityMapModal city={mapCity} onClose={() => setMapCity(null)} />}
-    </main>
+    </>
   );
 }

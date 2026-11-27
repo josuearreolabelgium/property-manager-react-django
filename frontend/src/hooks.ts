@@ -1,7 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  createProperty, deleteProperty, fetchCities, fetchProperties, fetchRates, updateProperty, type NewProperty,
+  createProperty, deleteProperty, fetchCities, fetchProperties, fetchRates, updateProperty,
+  type Filters, type NewProperty, type PropertyChanges,
 } from "./api";
 
 // Exchange rates for the currency dropdown. They change once a day, so cache them for an hour.
@@ -29,20 +30,15 @@ export function useCities() {
 //   queryKey: ["properties", { city, page }]   <- filters in the key = separate cache per filter
 //   queryFn:  a function that calls fetchProperties(city, page)
 //   placeholderData: keepPreviousData          <- keeps the old page visible while loading
-export function useProperties(city: string, page: number, search = "") {
+export function useProperties(filters: Filters) {
   return useQuery({
-    queryKey: ["properties", { city, page, search }],
-    queryFn: () => fetchProperties(city, page, search),
+    queryKey: ["properties", filters],
+    queryFn: () => fetchProperties(filters),
     placeholderData: keepPreviousData,
   });
 }
 
-// TODO 5.2: CREATE
-// const qc = useQueryClient();
-// return useMutation({ ... }) with:
-//   mutationFn: (data: NewProperty) => createProperty(data)
-//   onSuccess:  invalidate every query whose key starts with "properties"
-//               hint: qc.invalidateQueries({ queryKey: [...] })
+// Creates a property, then refreshes the list and the city dropdown
 export function useCreateProperty() {
   const qc = useQueryClient();
   return useMutation({
@@ -51,11 +47,11 @@ export function useCreateProperty() {
   });
 }
 
-// Already done, use it as a reference for 5.2 and 5.3
+// Changes fields of a property, e.g. its status
 export function useUpdateProperty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<NewProperty> }) => updateProperty(id, data),
+    mutationFn: ({ id, data }: { id: number; data: PropertyChanges }) => updateProperty(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["properties"] }),
   });
 }
